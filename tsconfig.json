@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+      "target": "ES2015", // or "ESNext" for the latest features
+      "module": "commonjs",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true
+    }
+  }

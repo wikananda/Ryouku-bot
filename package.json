@@ -1,0 +1,26 @@
+{
+  "name": "discord-tts-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "ts-node src/deploy-commands.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@discordjs/builders": "^1.9.0",
+    "@discordjs/voice": "^0.18.0",
+    "@types/node": "^22.10.2",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "elevenlabs": "^1.50.2",
+    "groq-sdk": "^0.9.1",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^6.1.1"
+  }
+}

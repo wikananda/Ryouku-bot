@@ -1,0 +1,16 @@
+.vagrant/
+.vscode
+
+/bin/*
+/node_modules/*
+storage/
+
+*.mp3
+*.docx
+.env
+config.json
+database.json
+database.dev.json
+database.prod.json
+config.dev.json
+config.prod.json
