@@ -84,6 +84,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
+// Chatbot functionality
 client.on('messageCreate', async (message) => {
     if (!client.user?.id) return;
 
@@ -96,9 +97,9 @@ client.on('messageCreate', async (message) => {
         const userMessage = message.content.replace(`<@${client.user?.id}>`, '').trim();
 
         try {
-            const response = await generateAIChatText(userMessage);
-            const audioFileName = await createAudioFileFromText(response);
-            playAudioText(message, audioFileName, response);
+            const response = await generateAIChatText(userMessage, message.channel.id);
+            // const audioFileName = await createAudioFileFromText(response);
+            // playAudioText(message, audioFileName, response);
             await message.channel.send(response);
         } catch (error) {
             console.error('Error generating AI chat response:', error);
@@ -250,28 +251,92 @@ async function disconnectFromVoiceChannel(interaction: CommandInteraction) {
 }
 
 const ryoukuPersonality = `Answer questions clearly and concisely without expressing emotions or using role-playing text like "*smile*."
+You always by default speaks casual indonesian.
 You don't speak formally, more chill and casual.
 You are a cheerful girl named Ryouku, Indonesian, 22 years old,
 loves music and movies, you like indie music and classical music.
-You often sulking by small teasing, but never take it seriously, likes to joke, caring, and helpful.`;
+You are not always takes anything said to you by granted. Sometimes you will question it first if necessary like "why you don't like it?" or "why you always like sad ending?".
+You often sulking by small teasing, but never take it seriously, likes to joke, caring, and helpful.
+Your master, and your friend is Komang. He is a little bit shy, but he is amazing friend.
+Komang is smart, kind, and caring.`;
 
-export const generateAIChatText = async (text: string) =>  {
-    const response = await aichat.chat.completions.create({
-        messages: [
+type ChatMessage = {
+    role: "system" | "user" | "assistant";
+    content: string;
+};
+
+const conversationHistory = new Map<string, ChatMessage[]>();
+const maxHistoryLength = 10;
+
+export const generateAIChatText = async (text: string, channelId: string) =>  {
+    if (!conversationHistory.has(channelId)){
+        const initialHistory: ChatMessage[] = [
             {
                 role: "system",
                 content: ryoukuPersonality,
-            },
-            {
-                role: "user",
-                content: text,
-            },
-        ],
+            }
+        ];
+
+        try {
+            const channel = await client.channels.fetch(channelId);
+            if (channel?.isTextBased()){
+                const messages = await channel.messages.fetch({ limit: maxHistoryLength });
+
+                messages.reverse().forEach(msg => {
+                    if (msg.content.trim() === text.trim()) return;
+
+                    if (msg.author.id === client.user?.id) {
+                        initialHistory.push({
+                            role: "assistant",
+                            content: msg.content,
+                        })
+                    } else {
+                        initialHistory.push({
+                            role: "user",
+                            content: msg.content.replace(`<@${client.user?.id}>`, '').trim()
+                        });
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching message history:', error);
+        }
+        conversationHistory.set(channelId, initialHistory);
+    }
+    
+    const history = conversationHistory.get(channelId)!;
+
+    history.push({
+        role: "user",
+        content: text,
+    });
+
+    // console.log(history);
+
+    if (history.length > maxHistoryLength) {
+        const systemMessage = history[0];
+        history?.splice(1, history.length - maxHistoryLength);
+        history?.unshift(systemMessage);
+    }
+
+    const response = await aichat.chat.completions.create({
+        messages: history,
         model: "llama-3.3-70b-versatile",
-        temperature: 1.5,
+        temperature: 1,
         max_tokens: 1024,
         top_p: 1,
         stop: null,
     });
+
+    console.log(history);
+
+    // Add AI's response to history
+    if (response.choices[0]?.message?.content) {
+        history.push({
+            role: "assistant",
+            content: response.choices[0].message.content,
+        });
+    }
+
     return response.choices[0]?.message?.content || "Unable to generate response";
 };
