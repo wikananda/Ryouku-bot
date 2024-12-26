@@ -5,14 +5,19 @@ dotenv.config();
 
 // Add token validation
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const clientId = process.env.CLIENT_ID;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
 
 if (!DISCORD_TOKEN) {
     throw new Error('DISCORD_TOKEN is missing in environment variables');
 }
 
-if (!clientId) {
+if (!CLIENT_ID) {
     throw new Error('CLIENT_ID is missing in environment variables');
+}
+
+if (!GUILD_ID) {
+    throw new Error('GUILD_ID is missing in environment variables');
 }
 
 export const commands: ApplicationCommandData[] = [
@@ -42,10 +47,16 @@ async function deployCommands() {
     try {
         console.log('Started refreshing application (/) commands.');
 
+        // await rest.put(
+        //     Routes.applicationCommands(CLIENT_ID!),
+        //     { body: commands },
+        // )
+
         await rest.put(
-            Routes.applicationCommands(process.env.CLIENT_ID!),
+            Routes.applicationGuildCommands(CLIENT_ID!, GUILD_ID!),
             { body: commands },
         )
+
         console.log('Successfully reloaded application (/) commands.');
     } catch (error) {
         console.error(error);

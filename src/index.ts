@@ -214,6 +214,9 @@ async function connectToVoiceChannel(interaction: CommandInteraction) {
         return;
     }
     
+    // First, send a reply
+    await interaction.reply('Connecting to voice channel...');
+
     const connection = joinVoiceChannel({
         channelId: voiceChannel.id,
         guildId: interaction.guildId,
@@ -228,11 +231,11 @@ async function connectToVoiceChannel(interaction: CommandInteraction) {
         console.log('The bot has disconnected from the channel.');
     })
 
-    await interaction.deleteReply();
+    // await interaction.deleteReply();
 }
 
 async function disconnectFromVoiceChannel(interaction: CommandInteraction) {
-    if (!interaction.guildId || interaction.guild) {
+    if (!interaction.guildId || !interaction.guild) {
         await interaction.reply('This command can only be used in server')
         return;
     }
