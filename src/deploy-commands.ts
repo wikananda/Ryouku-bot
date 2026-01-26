@@ -13,6 +13,16 @@ export const commands: ApplicationCommandData[] = [
         }]
     },
     {
+        name: 'play',
+        description: 'Play audio from YouTube in voice channel',
+        options: [{
+            name: 'url',
+            type: 3, // STRING type
+            description: 'YouTube URL to play',
+            required: true
+        }]
+    },
+    {
         name: 'connect',
         description: 'Connect to a voice channel',
     },
