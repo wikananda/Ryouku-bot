@@ -1,6 +1,6 @@
-import { createAudioFileFromText } from "./index";
+import { createAudioFileFromText } from "./services/tts.service";
 
-const testAudioFile = async(text: string) => {
+const testAudioFile = async (text: string) => {
     try {
         const audioBuffer = await createAudioFileFromText(text);
         console.log(`Audio stream generated successfully for text: ${text}`, audioBuffer);

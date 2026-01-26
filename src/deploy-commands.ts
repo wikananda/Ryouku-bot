@@ -1,24 +1,5 @@
 import { REST, Routes, ApplicationCommandData } from 'discord.js';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
-
-// Add token validation
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
-
-if (!DISCORD_TOKEN) {
-    throw new Error('DISCORD_TOKEN is missing in environment variables');
-}
-
-if (!CLIENT_ID) {
-    throw new Error('CLIENT_ID is missing in environment variables');
-}
-
-if (!GUILD_ID) {
-    throw new Error('GUILD_ID is missing in environment variables');
-}
+import { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } from './config/constants';
 
 export const commands: ApplicationCommandData[] = [
     {
