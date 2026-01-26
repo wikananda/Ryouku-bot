@@ -23,6 +23,28 @@ export const commands: ApplicationCommandData[] = [
         }]
     },
     {
+        name: 'queue',
+        description: 'Show the current music queue',
+    },
+    {
+        name: 'skip',
+        description: 'Skip the current song',
+    },
+    {
+        name: 'remove',
+        description: 'Remove a song from the queue',
+        options: [{
+            name: 'index',
+            type: 4, // INTEGER type
+            description: 'Position of the song to remove (1, 2, 3...)',
+            required: true
+        }]
+    },
+    {
+        name: 'stop',
+        description: 'Stop playback and clear the queue',
+    },
+    {
         name: 'connect',
         description: 'Connect to a voice channel',
     },
@@ -31,6 +53,11 @@ export const commands: ApplicationCommandData[] = [
         description: 'Disconnect from a voice channel',
     }
 ];
+
+if (!DISCORD_TOKEN) {
+    console.error('DISCORD_TOKEN is not set in environment variables');
+    process.exit(1);
+}
 
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 
@@ -43,8 +70,13 @@ async function deployCommands() {
         //     { body: commands },
         // )
 
+        if (!GUILD_ID) {
+            console.error('GUILD_ID is not set in environment variables');
+            return;
+        }
+
         await rest.put(
-            Routes.applicationGuildCommands(CLIENT_ID!, GUILD_ID!),
+            Routes.applicationGuildCommands(CLIENT_ID!, GUILD_ID),
             { body: commands },
         )
 

@@ -6,6 +6,8 @@ import {
     AudioPlayerStatus,
     VoiceConnectionStatus,
     StreamType,
+    VoiceConnection,
+    AudioPlayer,
 } from "@discordjs/voice";
 import { VoiceBasedChannel } from "discord.js";
 import { Innertube, ClientType } from "youtubei.js";
@@ -45,12 +47,33 @@ function extractVideoId(url: string): string | null {
 }
 
 /**
+ * Get video title from YouTube URL
+ */
+export async function getVideoTitle(youtubeUrl: string): Promise<string> {
+    const yt = await getInnertube();
+    const videoId = extractVideoId(youtubeUrl);
+    if (!videoId) {
+        throw new Error("Invalid YouTube URL");
+    }
+    const info = await yt.getBasicInfo(videoId);
+    return info.basic_info.title || "Unknown Title";
+}
+
+/**
  * Play YouTube audio in voice channel using youtubei.js
+ * @param onFinish - Callback when song finishes playing
+ * @returns Object with title, player, connection, and voiceChannel
  */
 export async function playYoutubeAudio(
     voiceChannel: VoiceBasedChannel,
     youtubeUrl: string,
-): Promise<string> { // Changed to return the title string
+    onFinish?: () => void
+): Promise<{
+    title: string;
+    player: AudioPlayer;
+    connection: VoiceConnection;
+    voiceChannel: VoiceBasedChannel;
+}> {
     try {
         console.log(`Setting up playback for: ${youtubeUrl}`);
 
@@ -144,14 +167,23 @@ export async function playYoutubeAudio(
 
         player.on(AudioPlayerStatus.Idle, () => {
             console.log("Playback finished");
-            connection.destroy();
+            if (onFinish) {
+                onFinish();
+            } else {
+                connection.destroy();
+            }
         });
 
         player.play(resource);
         connection.subscribe(player);
         console.log("Started playing!");
 
-        return title; // Return the title back to the handler
+        return {
+            title,
+            player,
+            connection,
+            voiceChannel
+        };
 
     } catch (error) {
         console.error("Error playing YouTube audio:", error);
