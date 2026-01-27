@@ -7,7 +7,8 @@
     "start": "ts-node src/index.ts",
     "deploy:guild": "ts-node src/deploy/deploy-guild.ts",
     "deploy:global": "ts-node src/deploy/deploy-global.ts",
-    "deploy:clear-global": "ts-node src/deploy/clear-global.ts"
+    "deploy:clear-global": "ts-node src/deploy/clear-global.ts",
+    "deploy:clear-guild": "ts-node src/deploy/clear-guild.ts"
   },
   "keywords": [],
   "author": "",

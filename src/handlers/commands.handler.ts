@@ -130,7 +130,7 @@ async function handlePlayCommand(interaction: CommandInteraction): Promise<void>
             });
 
             await interaction.editReply(
-                `Added to queue at position **${position}**: **[${title}](${url})** 🎵`
+                `Added to queue at position **${position}**: **[${title}](<${url}>)** 🎵`
             );
         } else {
             // Nothing playing, start immediately
@@ -181,13 +181,13 @@ async function handleQueueCommand(interaction: CommandInteraction): Promise<void
     let message = "🎵 **Music Queue**\n\n";
 
     if (currentSong) {
-        message += `**Now Playing:**\n[${currentSong.title}](${currentSong.url}) - Requested by ${currentSong.requestedBy}\n\n`;
+        message += `**Now Playing:**\n[${currentSong.title}](<${currentSong.url}>) - Requested by ${currentSong.requestedBy}\n\n`;
     }
 
     if (queueItems.length > 0) {
         message += "**Queue:**\n";
         queueItems.forEach((item, index) => {
-            message += `${index + 1}. [${item.title}](${item.url}) - Requested by ${item.requestedBy}\n`;
+            message += `${index + 1}. [${item.title}](<${item.url}>) - Requested by ${item.requestedBy}\n`;
         });
         message += `\n**Total:** ${queueItems.length} song(s) in queue`;
     } else {

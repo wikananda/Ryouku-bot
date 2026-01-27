@@ -10,8 +10,11 @@ import {
     AudioPlayer,
 } from "@discordjs/voice";
 import { VoiceBasedChannel } from "discord.js";
-import { Innertube, ClientType } from "youtubei.js";
+import { Innertube, ClientType, Log } from "youtubei.js";
 import prism from "prism-media";
+
+// Silence noisy YouTube engine logs
+Log.setLevel(Log.Level.ERROR);
 
 // Singleton instances for different clients
 let searchClient: Innertube | null = null;
@@ -144,20 +147,19 @@ export async function playYoutubeAudio(
         const title = basicInfo.basic_info.title || "Unknown Title";
         console.log(`Playing: ${title}`);
 
-        // Use Playback client (ANDROID) for actual stream extraction
+        // Use Playback client (ANDROID) for primary stream extraction
         console.log("Extracting audio stream (ANDROID client)...");
         let info;
         try {
-            info = await pClient.getInfo(videoId);
+            // getBasicInfo is much more stable than getInfo because it doesn't parse complex UI elements
+            info = await pClient.getBasicInfo(videoId);
         } catch (e) {
-            console.warn("Playback client getInfo failed, falling back to Search client or BasicInfo:", e);
-            // Fallback: try getBasicInfo which doesn't parse 'watch next' (the usual crash point)
+            console.warn("Playback client getBasicInfo failed, falling back to getInfo (might be noisy):", e);
             try {
-                info = (await pClient.getBasicInfo(videoId)) as any;
+                info = await pClient.getInfo(videoId);
             } catch (e2) {
-                console.error("Secondary fallback failed:", e2);
-                // Last ditch effort: use search client for playback too
-                info = (await sClient.getInfo(videoId)) as any;
+                console.warn("Playback client getInfo failed too, falling back to Search client:", e2);
+                info = await sClient.getBasicInfo(videoId);
             }
         }
 
