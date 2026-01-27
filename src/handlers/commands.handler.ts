@@ -5,7 +5,7 @@ import {
     connectToVoiceChannel,
     disconnectFromVoiceChannel,
 } from "../services/voice.service";
-import { playYoutubeAudio, getVideoTitle } from "../services/youtube.service";
+import { playYoutubeAudio, getVideoTitle, searchVideos } from "../services/youtube.service";
 import * as QueueService from "../services/queue.service";
 import { AUDIO_GENERATION_ERROR_MESSAGE, VOICE_CHANNEL_REQUIRED_MESSAGE } from "../utils/validation.utils";
 
@@ -84,13 +84,18 @@ async function handleSayCommand(interaction: CommandInteraction): Promise<void> 
  * Handle /play command
  */
 async function handlePlayCommand(interaction: CommandInteraction): Promise<void> {
-    const url = interaction.options.get("url", true)?.value as string;
+    let url = interaction.options.get("url", true)?.value as string;
 
-    console.log("Play YouTube - URL received:", url);
+    console.log("Play YouTube - Input received:", url);
+
+    // If it's a video ID (11 chars and not a URL), convert to full URL
+    if (url && url.length === 11 && !url.includes("http")) {
+        url = `https://www.youtube.com/watch?v=${url}`;
+    }
 
     // Validate URL is not undefined or empty
     if (!url || typeof url !== "string") {
-        await interaction.reply("Please provide a valid YouTube URL.");
+        await interaction.reply("Please provide a valid YouTube URL or search query.");
         return;
     }
 
@@ -266,10 +271,43 @@ async function handleDisconnectCommand(
 }
 
 /**
+ * Handle autocomplete for /play command
+ */
+async function handleAutocomplete(interaction: any): Promise<void> {
+    const focusedValue = interaction.options.getFocused();
+
+    if (!focusedValue || focusedValue.length < 2) {
+        await interaction.respond([]);
+        return;
+    }
+
+    try {
+        const results = await searchVideos(focusedValue);
+        await interaction.respond(
+            results.map(choice => ({
+                name: choice.title.length > 100 ? choice.title.substring(0, 97) + "..." : choice.title,
+                value: choice.id,
+            }))
+        );
+    } catch (error) {
+        console.error("Autocomplete error:", error);
+        await interaction.respond([]);
+    }
+}
+
+/**
  * Setup interaction handlers for slash commands
  */
 export function setupCommandHandlers(client: Client): void {
     client.on("interactionCreate", async (interaction) => {
+        // Handle autocomplete
+        if (interaction.isAutocomplete()) {
+            if (interaction.commandName === 'play') {
+                await handleAutocomplete(interaction);
+            }
+            return;
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         switch (interaction.commandName) {

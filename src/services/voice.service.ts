@@ -4,6 +4,8 @@ import {
     createAudioResource,
     VoiceConnectionStatus,
     getVoiceConnection,
+    entersState,
+    NoSubscriberBehavior,
 } from "@discordjs/voice";
 import { CommandInteraction, Message, GuildMember } from "discord.js";
 import { AudioSource } from "../types";
@@ -11,6 +13,7 @@ import {
     getVoiceChannelFromSource,
     VOICE_CHANNEL_REQUIRED_MESSAGE,
 } from "../utils/validation.utils";
+import { existsSync } from "fs";
 
 /**
  * Play audio text in voice channel
@@ -38,39 +41,61 @@ export async function playAudioText(
         adapterCreator: voiceChannel.guild.voiceAdapterCreator,
     });
 
-    const player = createAudioPlayer();
-    const resource = createAudioResource(audioFileName, {
+    // Create a player with autopause disabled
+    const player = createAudioPlayer({
+        behaviors: {
+            noSubscriber: NoSubscriberBehavior.Play,
+        },
+    });
+
+    // Explicitly disable autopause if supported or just handle it via state
+    // In discord.js/voice, autopaused happens if connection is not ready.
+
+    const filePath = audioFileName;
+    console.log(`Checking if file exists: ${filePath}`);
+
+    if (!existsSync(filePath)) {
+        console.error(`Audio file NOT found at: ${filePath}`);
+        throw new Error("Generated audio file is missing.");
+    }
+
+    const resource = createAudioResource(filePath, {
         inlineVolume: true,
     });
 
     // Set up event listeners
-    connection.on(VoiceConnectionStatus.Ready, () => {
-        console.log("Connection ready, playing audio...");
-        player.play(resource);
-    });
-
     player.on("stateChange", (oldState, newState) => {
-        console.log(
-            `Audio player transitioned from ${oldState.status} to ${newState.status}`,
-        );
+        console.log(`TTS Player: ${oldState.status} -> ${newState.status}`);
     });
 
     player.on("error", (error) => {
-        console.error("Audio player error:", error.message, error);
+        console.error("Audio player error:", error.message);
     });
 
     connection.subscribe(player);
 
-    // Fallback play if connection is already ready
-    if (connection.state.status === VoiceConnectionStatus.Ready) {
+    try {
+        // Wait for the connection to be ready
+        console.log("Waiting for voice connection to be ready...");
+        await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+        console.log("Voice connection is READY. Starting playback.");
+
         player.play(resource);
+    } catch (error) {
+        console.error("Voice connection failed to become ready:", error);
+        if (source instanceof Message) {
+            await source.reply("Failed to connect to voice channel.");
+        } else {
+            await source.editReply("Failed to connect to voice channel.");
+        }
+        return;
     }
 
     // Send reply
     if (source instanceof Message) {
-        await source.reply("Speaking...");
+        await source.reply("Speaking... 🗣️");
     } else {
-        await source.editReply("Speaking...");
+        await source.editReply("Speaking... 🗣️");
     }
 }
 

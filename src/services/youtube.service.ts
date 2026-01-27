@@ -60,6 +60,22 @@ export async function getVideoTitle(youtubeUrl: string): Promise<string> {
 }
 
 /**
+ * Search for videos on YouTube
+ */
+export async function searchVideos(query: string) {
+    if (!query) return [];
+
+    const yt = await getInnertube();
+    const results = await yt.search(query, { type: 'video' });
+
+    // Extract top 10 results
+    return results.videos.slice(0, 10).map(v => ({
+        title: (v as any).title?.toString() || 'Unknown Title',
+        id: (v as any).id?.toString() || ''
+    })).filter(v => v.id);
+}
+
+/**
  * Play YouTube audio in voice channel using youtubei.js
  * @param onFinish - Callback when song finishes playing
  * @returns Object with title, player, connection, and voiceChannel

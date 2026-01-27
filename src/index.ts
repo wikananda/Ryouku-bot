@@ -2,7 +2,7 @@ import { Client, GatewayIntentBits } from "discord.js";
 import { DISCORD_TOKEN } from "./config/constants";
 import { setupCommandHandlers } from "./handlers/commands.handler";
 import { setupMessageHandlers } from "./handlers/messages.handler";
-import { commands } from "./deploy-commands";
+import { commands } from "./commands";
 
 // Initialize Discord client
 const client = new Client({

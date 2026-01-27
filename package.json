@@ -4,7 +4,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "ts-node src/deploy-commands.ts"
+    "start": "ts-node src/index.ts",
+    "deploy:guild": "ts-node src/deploy/deploy-guild.ts",
+    "deploy:global": "ts-node src/deploy/deploy-global.ts",
+    "deploy:clear-global": "ts-node src/deploy/clear-global.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,18 +15,22 @@
   "description": "",
   "dependencies": {
     "@discordjs/builders": "^1.9.0",
+    "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.18.0",
-    "@types/node": "^22.10.2",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.7",
     "elevenlabs": "^1.50.2",
     "ffmpeg-static": "^5.3.0",
     "groq-sdk": "^0.9.1",
+    "libsodium-wrappers": "^0.8.2",
     "prism-media": "^1.3.5",
     "uuid": "^11.0.3",
     "youtubei.js": "^16.0.1"
   },
   "devDependencies": {
-    "@types/dotenv": "^6.1.1"
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^25.0.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }
