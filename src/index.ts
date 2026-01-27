@@ -3,6 +3,7 @@ import { DISCORD_TOKEN } from "./config/constants";
 import { setupCommandHandlers } from "./handlers/commands.handler";
 import { setupMessageHandlers } from "./handlers/messages.handler";
 import { commands } from "./commands";
+import { warmupClients } from "./services/youtube.service";
 
 // Initialize Discord client
 const client = new Client({
@@ -13,6 +14,9 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
     ],
 });
+
+// Warm up YouTube clients
+warmupClients().catch(err => console.error("YouTube warmup failed:", err));
 
 // Setup event handlers
 setupCommandHandlers(client);

@@ -284,14 +284,22 @@ async function handleAutocomplete(interaction: any): Promise<void> {
     try {
         const results = await searchVideos(focusedValue);
         await interaction.respond(
-            results.map(choice => ({
+            results.map((choice: any) => ({
                 name: choice.title.length > 100 ? choice.title.substring(0, 97) + "..." : choice.title,
                 value: choice.id,
             }))
         );
-    } catch (error) {
+    } catch (error: any) {
+        if (error.code === 10062) {
+            // Interaction expired, which is normal for autocomplete if search takes time
+            return;
+        }
         console.error("Autocomplete error:", error);
-        await interaction.respond([]);
+        try {
+            await interaction.respond([]);
+        } catch (e) {
+            // Ignore if already responded or expired
+        }
     }
 }
 
