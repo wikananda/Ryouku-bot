@@ -3,7 +3,6 @@ import { DISCORD_TOKEN } from "./config/constants";
 import { setupCommandHandlers } from "./handlers/commands.handler";
 import { setupMessageHandlers } from "./handlers/messages.handler";
 import { commands } from "./commands";
-import { warmupClients } from "./services/youtube.service";
 
 // Initialize Discord client
 const client = new Client({
@@ -15,31 +14,32 @@ const client = new Client({
     ],
 });
 
-// Warm up YouTube clients
-warmupClients().catch(err => console.error("YouTube warmup failed:", err));
-
 // Setup event handlers
 setupCommandHandlers(client);
 setupMessageHandlers(client);
 
 // Register commands when client is ready
-client.once("clientReady", async () => {
+client.once("ready", async (c) => {
+    console.log(`[Bot] Logged in as ${c.user.tag}!`);
+
     if (!client.application) {
-        console.error("Client application is not available");
+        console.error("[Bot] Client application is not available");
         return;
     }
 
     try {
-        await client.application.commands.fetch();
+        console.log("[Bot] Registering slash commands...");
         await client.application.commands.set(commands);
-        console.log("Successfully registered guild commands");
+        console.log("[Bot] Successfully registered slash commands");
     } catch (error) {
-        console.error("Error registering commands:", error);
+        console.error("[Bot] Error registering commands:", error);
     }
 });
 
 // Login to Discord
-client.login(DISCORD_TOKEN);
+client.login(DISCORD_TOKEN).catch((err) => {
+    console.error("[Bot] Login failed:", err);
+});
 
 // Export client for use in services if needed
 export { client };

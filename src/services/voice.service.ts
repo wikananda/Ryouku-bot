@@ -14,6 +14,7 @@ import {
     VOICE_CHANNEL_REQUIRED_MESSAGE,
 } from "../utils/validation.utils";
 import { existsSync } from "fs";
+import { cleanupTTSFile } from "./tts.service";
 
 /**
  * Play audio text in voice channel
@@ -52,10 +53,10 @@ export async function playAudioText(
     // In discord.js/voice, autopaused happens if connection is not ready.
 
     const filePath = audioFileName;
-    console.log(`Checking if file exists: ${filePath}`);
+    console.log(`[Voice] Checking if file exists: ${filePath}`);
 
     if (!existsSync(filePath)) {
-        console.error(`Audio file NOT found at: ${filePath}`);
+        console.error(`[Voice] Audio file NOT found at: ${filePath}`);
         throw new Error("Generated audio file is missing.");
     }
 
@@ -65,24 +66,32 @@ export async function playAudioText(
 
     // Set up event listeners
     player.on("stateChange", (oldState, newState) => {
-        console.log(`TTS Player: ${oldState.status} -> ${newState.status}`);
+        console.log(`[Voice] TTS Player: ${oldState.status} -> ${newState.status}`);
+
+        // Cleanup file when finished or error
+        if (newState.status === "idle") {
+            console.log("[Voice] Playback finished or failed (Idle).");
+            cleanupTTSFile(filePath);
+        }
     });
 
     player.on("error", (error) => {
-        console.error("Audio player error:", error.message);
+        console.error("[Voice] Audio player error:", error.message);
+        cleanupTTSFile(filePath);
     });
 
     connection.subscribe(player);
 
     try {
         // Wait for the connection to be ready
-        console.log("Waiting for voice connection to be ready...");
+        console.log("[Voice] Waiting for voice connection to be ready...");
         await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
-        console.log("Voice connection is READY. Starting playback.");
+        console.log("[Voice] Voice connection is READY. Starting playback.");
 
         player.play(resource);
     } catch (error) {
-        console.error("Voice connection failed to become ready:", error);
+        console.error("[Voice] Voice connection failed to become ready:", error);
+        cleanupTTSFile(filePath);
         if (source instanceof Message) {
             await source.reply("Failed to connect to voice channel.");
         } else {

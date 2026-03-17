@@ -1,59 +1,16 @@
-import { Readable } from "stream";
 import {
     joinVoiceChannel,
     createAudioPlayer,
     createAudioResource,
     AudioPlayerStatus,
     VoiceConnectionStatus,
-    StreamType,
     VoiceConnection,
     AudioPlayer,
+    entersState,
+    NoSubscriberBehavior,
 } from "@discordjs/voice";
 import { VoiceBasedChannel } from "discord.js";
-import { Innertube, ClientType, Log } from "youtubei.js";
-import prism from "prism-media";
-
-// Silence noisy YouTube engine logs
-Log.setLevel(Log.Level.ERROR);
-
-// Singleton instances for different clients
-let searchClient: Innertube | null = null;
-let playbackClient: Innertube | null = null;
-
-/**
- * Get the client used for searching and general metadata (WEB)
- */
-async function getSearchClient() {
-    if (!searchClient) {
-        searchClient = await Innertube.create({
-            client_type: ClientType.WEB,
-            retrieve_player: false,
-        });
-        console.log("[YouTube] Search client (WEB) initialized");
-    }
-    return searchClient;
-}
-
-/**
- * Get the client used for playback extraction (ANDROID)
- */
-async function getPlaybackClient() {
-    if (!playbackClient) {
-        playbackClient = await Innertube.create({
-            client_type: ClientType.ANDROID,
-            retrieve_player: true,
-        });
-        console.log("[YouTube] Playback client (ANDROID) initialized");
-    }
-    return playbackClient;
-}
-/**
- * Warm up clients on startup
- */
-export async function warmupClients() {
-    console.log("[YouTube] Warming up clients...");
-    await Promise.all([getSearchClient(), getPlaybackClient()]);
-}
+import play from "play-dl";
 
 /**
  * Extract video ID from various YouTube URL formats
@@ -78,14 +35,13 @@ function extractVideoId(url: string): string | null {
  * Get video title from YouTube URL
  */
 export async function getVideoTitle(youtubeUrl: string): Promise<string> {
-    const yt = await getSearchClient();
-    const videoId = extractVideoId(youtubeUrl);
-    if (!videoId) {
-        throw new Error("Invalid YouTube URL");
+    try {
+        const info = await play.video_info(youtubeUrl);
+        return info.video_details.title || "Unknown Title";
+    } catch (error) {
+        console.error("[YouTube] Error fetching video title:", error);
+        return "Unknown Title";
     }
-    // WEB client is very stable for basic info
-    const info = await yt.getBasicInfo(videoId);
-    return info.basic_info.title || "Unknown Title";
 }
 
 /**
@@ -94,25 +50,24 @@ export async function getVideoTitle(youtubeUrl: string): Promise<string> {
 export async function searchVideos(query: string) {
     if (!query) return [];
 
-    const yt = await getSearchClient();
-
     try {
-        // WEB search is most comprehensive
-        const results = await yt.search(query, { type: 'video' });
-        const videos = results.videos || [];
+        const searchResults = await play.search(query, {
+            limit: 10,
+            source: { youtube: "video" }
+        });
 
-        return videos.slice(0, 10).map((v: any) => ({
-            title: v.title?.toString() || 'Unknown Title',
-            id: v.id?.toString() || ''
-        })).filter((v: any) => v.id);
+        return searchResults.map((video) => ({
+            title: video.title || "Unknown Title",
+            id: video.id || ""
+        })).filter((v) => v.id);
     } catch (error) {
-        console.error("YouTube search error:", error);
+        console.error("[YouTube] Search error:", error);
         return [];
     }
 }
 
 /**
- * Play YouTube audio in voice channel using youtubei.js
+ * Play YouTube audio in voice channel using play-dl
  */
 export async function playYoutubeAudio(
     voiceChannel: VoiceBasedChannel,
@@ -125,100 +80,82 @@ export async function playYoutubeAudio(
     voiceChannel: VoiceBasedChannel;
 }> {
     try {
-        console.log(`Setting up playback for: ${youtubeUrl}`);
+        console.log(`[YouTube] Setting up playback for: ${youtubeUrl}`);
 
-        const sClient = await getSearchClient();
-        const pClient = await getPlaybackClient();
-
+        // Validate URL
         const videoId = extractVideoId(youtubeUrl);
         if (!videoId) {
-            throw new Error("Invalid YouTube URL - could not extract video ID");
+            youtubeUrl = `https://www.youtube.com/watch?v=${youtubeUrl}`;
         }
 
+        // Get video info
+        console.log("[YouTube] Fetching video metadata...");
+        const info = await play.video_info(youtubeUrl);
+        const title = info.video_details.title || "Unknown Title";
+        console.log(`[YouTube] Playing: ${title}`);
+
+        // Create voice connection
         const connection = joinVoiceChannel({
             channelId: voiceChannel.id,
             guildId: voiceChannel.guild.id,
             adapterCreator: voiceChannel.guild.voiceAdapterCreator,
         });
 
-        // Use Search client for metadata (faster/stays on WEB)
-        console.log("Fetching video metadata...");
-        const basicInfo = await sClient.getBasicInfo(videoId);
-        const title = basicInfo.basic_info.title || "Unknown Title";
-        console.log(`Playing: ${title}`);
+        // Get audio stream from play-dl
+        console.log("[YouTube] Creating audio stream...");
+        const stream = await play.stream(youtubeUrl);
 
-        // Use Playback client (ANDROID) for primary stream extraction
-        console.log("Extracting audio stream (ANDROID client)...");
-        let info;
-        try {
-            // getBasicInfo is much more stable than getInfo because it doesn't parse complex UI elements
-            info = await pClient.getBasicInfo(videoId);
-        } catch (e) {
-            console.warn("Playback client getBasicInfo failed, falling back to getInfo (might be noisy):", e);
-            try {
-                info = await pClient.getInfo(videoId);
-            } catch (e2) {
-                console.warn("Playback client getInfo failed too, falling back to Search client:", e2);
-                info = await sClient.getBasicInfo(videoId);
+        // Create audio resource
+        const resource = createAudioResource(stream.stream, {
+            inputType: stream.type,
+        });
+
+        // Create audio player
+        const player = createAudioPlayer({
+            behaviors: {
+                noSubscriber: NoSubscriberBehavior.Play,
+            },
+        });
+
+        // Set up event listeners
+        player.on("stateChange", (oldState, newState) => {
+            console.log(`[YouTube] Player State: ${oldState.status} -> ${newState.status}`);
+            if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
+                console.log("[YouTube] Playback finished");
+                if (onFinish) onFinish();
+                else connection.destroy();
             }
-        }
-
-        const format = info.chooseFormat({
-            type: 'audio',
-            quality: 'best'
-        });
-
-        if (!format) {
-            throw new Error("No suitable audio format found");
-        }
-
-        console.log("Deciphering audio URL...");
-        // Use the session of the client that provided the info
-        const session = (info as any).session || pClient.session;
-        const audioUrl = await format.decipher(session.player);
-        if (!audioUrl) {
-            throw new Error("Failed to decipher audio URL. This content might be restricted.");
-        }
-
-        const response = await fetch(audioUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch audio: ${response.status}`);
-        }
-
-        const nodeStream = Readable.fromWeb(response.body as any);
-        const transcoder = new prism.FFmpeg({
-            args: [
-                "-analyzeduration", "0",
-                "-loglevel", "0",
-                "-f", "s16le",
-                "-ar", "48000",
-                "-ac", "2",
-            ],
-        } as any);
-
-        const resource = createAudioResource(nodeStream.pipe(transcoder), {
-            inputType: StreamType.Raw,
-        });
-
-        const player = createAudioPlayer();
-        player.on(AudioPlayerStatus.Idle, () => {
-            if (onFinish) onFinish();
-            else connection.destroy();
         });
 
         player.on("error", (error) => {
-            console.error("Player error:", error);
+            console.error("[YouTube] Player error:", error);
             connection.destroy();
         });
 
-        player.play(resource);
+        connection.on("stateChange", (oldState, newState) => {
+            console.log(`[YouTube] Connection State: ${oldState.status} -> ${newState.status}`);
+        });
+
         connection.subscribe(player);
-        console.log("Started playing!");
+
+        try {
+            // Wait for connection to be ready before playing
+            console.log("[YouTube] Waiting for connection to be ready...");
+            await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+            console.log("[YouTube] Connection ready! Starting playback...");
+
+            player.play(resource);
+            console.log("[YouTube] ✓ Playback started successfully");
+        } catch (error) {
+            console.error("[YouTube] Connection failed to become ready:", error);
+            connection.destroy();
+            throw new Error("Failed to establish voice connection");
+        }
 
         return { title, player, connection, voiceChannel };
 
     } catch (error) {
-        console.error("Error playing YouTube audio:", error);
+        console.error("[YouTube] Error playing audio:", error);
         throw error;
     }
 }
